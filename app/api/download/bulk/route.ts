@@ -1,133 +1,116 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { createGmailClient, downloadAttachment } from "@/lib/gmail";
-import archiver from "archiver";
+import {
+  createGmailClient,
+  getRawMessage,
+  getFullMessage,
+  extractBody,
+  getHeader,
+  buildEmailHtml,
+  findAttachments,
+  downloadAttachment,
+} from "@/lib/gmail";
+import { generateZip } from "@/lib/zip";
 
 export async function POST(request: Request) {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
+    if (!session?.accessToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
-    const { expenseIds } = body as { expenseIds: string[] };
+    const { messageIds } = body as { messageIds: string[] };
 
-    if (!Array.isArray(expenseIds) || expenseIds.length === 0) {
+    if (!Array.isArray(messageIds) || messageIds.length === 0) {
       return NextResponse.json(
-        { error: "expenseIds array is required" },
+        { error: "Missing or empty messageIds" },
         { status: 400 }
       );
     }
 
-    // Fetch expenses with attachments, verify ownership
-    const expenses = await prisma.expense.findMany({
-      where: {
-        id: { in: expenseIds },
-        userId: session.user.id,
-      },
-      include: {
-        attachments: true,
-        user: {
-          select: { accessToken: true },
-        },
-      },
-    });
+    const gmail = createGmailClient(session.accessToken);
+    const entries: { name: string; buffer: Buffer }[] = [];
 
-    if (expenses.length === 0) {
+    for (const messageId of messageIds) {
+      try {
+        // Get raw .eml
+        const raw = await getRawMessage(gmail, messageId);
+        const emlBuffer = Buffer.from(raw, "base64url");
+
+        // Get full message for HTML and attachments
+        const full = await getFullMessage(gmail, messageId);
+        const subject = getHeader(full, "Subject") || "no-subject";
+        const from = getHeader(full, "From");
+        const date = getHeader(full, "Date");
+        const safeSubject = sanitizeFilename(subject);
+
+        entries.push({
+          name: `emails/${safeSubject}.eml`,
+          buffer: emlBuffer,
+        });
+
+        // Build HTML version
+        const { text, html } = extractBody(full);
+        const htmlString = buildEmailHtml(subject, from, date, html, text);
+        entries.push({
+          name: `emails/${safeSubject}.html`,
+          buffer: Buffer.from(htmlString, "utf-8"),
+        });
+
+        // Download attachments
+        const attachments = findAttachments(full);
+        for (const att of attachments) {
+          try {
+            const attBuffer = await downloadAttachment(
+              gmail,
+              messageId,
+              att.attachmentId
+            );
+            const safeFilename = sanitizeFilename(att.filename || "attachment");
+            entries.push({
+              name: `attachments/${safeFilename}`,
+              buffer: attBuffer,
+            });
+          } catch (err) {
+            console.error(
+              `Failed to download attachment ${att.attachmentId}:`,
+              err
+            );
+          }
+        }
+      } catch (err) {
+        console.error(`Failed to process message ${messageId}:`, err);
+      }
+    }
+
+    if (entries.length === 0) {
       return NextResponse.json(
-        { error: "No matching expenses found" },
+        { error: "No content could be retrieved" },
         { status: 404 }
       );
     }
 
-    const accessToken = expenses[0].user.accessToken;
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: "No Gmail access token. Please re-authenticate." },
-        { status: 403 }
-      );
-    }
+    const zipBuffer = await generateZip(entries);
 
-    const gmail = createGmailClient(accessToken);
-
-    // Create ZIP archive
-    const archive = archiver("zip", { zlib: { level: 5 } });
-    const chunks: Buffer[] = [];
-
-    archive.on("data", (chunk: Buffer) => chunks.push(chunk));
-
-    const archiveFinished = new Promise<void>((resolve, reject) => {
-      archive.on("end", resolve);
-      archive.on("error", reject);
-    });
-
-    // Add files organized by category
-    for (const expense of expenses) {
-      const categoryFolder = expense.category.toLowerCase();
-
-      // Add email HTML summary
-      const emailSummary = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>${expense.subject}</title></head>
-<body>
-  <h1>${expense.subject}</h1>
-  <p><strong>From:</strong> ${expense.fromName ?? ""} &lt;${expense.fromEmail}&gt;</p>
-  <p><strong>Date:</strong> ${expense.emailDate.toISOString()}</p>
-  <p><strong>Amount:</strong> ${expense.amount != null ? `${expense.currency} ${expense.amount}` : "N/A"}</p>
-  <p><strong>Category:</strong> ${expense.category}</p>
-  <hr>
-  ${expense.bodyHtml ?? `<pre>${expense.bodyText ?? expense.snippet ?? ""}</pre>`}
-</body>
-</html>`.trim();
-
-      const safeSubject = expense.subject
-        .replace(/[^a-zA-Z0-9_\-. ]/g, "_")
-        .slice(0, 80);
-
-      archive.append(emailSummary, {
-        name: `${categoryFolder}/${safeSubject}/email.html`,
-      });
-
-      // Download and add attachments
-      for (const att of expense.attachments) {
-        try {
-          const buffer = await downloadAttachment(
-            gmail,
-            expense.gmailMessageId,
-            att.gmailAttachId
-          );
-          archive.append(buffer, {
-            name: `${categoryFolder}/${safeSubject}/${att.filename}`,
-          });
-        } catch (err) {
-          console.error(
-            `Failed to download attachment ${att.id} for expense ${expense.id}:`,
-            err
-          );
-        }
-      }
-    }
-
-    archive.finalize();
-    await archiveFinished;
-
-    const zipBuffer = Buffer.concat(chunks);
-
-    return new Response(zipBuffer, {
+    return new Response(new Uint8Array(zipBuffer), {
       headers: {
         "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="expenses-${new Date().toISOString().split("T")[0]}.zip"`,
-        "Content-Length": zipBuffer.length.toString(),
+        "Content-Disposition": 'attachment; filename="receipts.zip"',
       },
     });
   } catch (error) {
-    console.error("Failed to create bulk download:", error);
+    console.error("Bulk download failed:", error);
     return NextResponse.json(
-      { error: "Failed to create bulk download" },
+      { error: "Bulk download failed. Please try again." },
       { status: 500 }
     );
   }
+}
+
+function sanitizeFilename(name: string): string {
+  return name
+    .replace(/[^a-zA-Z0-9._\- ]/g, "")
+    .trim()
+    .slice(0, 100) || "file";
 }

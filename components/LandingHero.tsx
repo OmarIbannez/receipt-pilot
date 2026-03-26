@@ -25,8 +25,8 @@ const steps = [
     ),
   },
   {
-    title: "Scan & Categorize",
-    description: "AI reads your receipts and sorts them automatically.",
+    title: "Scan Inbox",
+    description: "Search your inbox for receipts, invoices, and bills.",
     icon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -46,7 +46,7 @@ const steps = [
   },
   {
     title: "Download & Export",
-    description: "Get organized receipts as PDFs, ready for tax time.",
+    description: "Get .eml files, attachments, and HTML exports as a ZIP.",
     icon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -70,14 +70,14 @@ export default function LandingHero() {
   return (
     <section className="mx-auto max-w-3xl px-4 py-24 text-center">
       <h1 className="text-4xl font-bold tracking-tight text-stone-900 sm:text-5xl">
-        Your receipts are in your inbox.
+        Your receipts are buried in Gmail.
         <br />
-        <span className="text-amber-600">Let&apos;s get them out.</span>
+        <span className="text-amber-600">Get them out.</span>
       </h1>
 
       <p className="mx-auto mt-4 max-w-lg text-lg text-stone-500">
-        ReceiptPilot scans your Gmail, categorizes expenses with AI, and
-        downloads attachments -- so you don&apos;t have to.
+        ReceiptPilot scans your Gmail and lets you download .eml files,
+        attachments, and email-as-HTML exports -- no setup required.
       </p>
 
       {/* Steps */}

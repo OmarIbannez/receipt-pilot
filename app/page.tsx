@@ -21,7 +21,7 @@ export default function Home() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-stone-50">
       <Navbar />
       <main className="flex-1">
         <LandingHero />
@@ -40,13 +40,13 @@ export default function Home() {
               },
               {
                 step: "2",
-                title: "Scan for expenses",
-                desc: "Our AI searches your inbox for invoices, receipts, subscriptions, and bills.",
+                title: "Scan for receipts",
+                desc: "Search your inbox for invoices, receipts, subscriptions, and bills.",
               },
               {
                 step: "3",
                 title: "Download everything",
-                desc: "Get real PDF attachments organized by category. Bulk export as a ZIP file.",
+                desc: "Get .eml files, attachments, and email-as-HTML exports. Bulk download as ZIP.",
               },
             ].map((item) => (
               <div
@@ -65,108 +65,58 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Pricing */}
+        {/* Features */}
         <section className="bg-white py-20">
           <div className="mx-auto max-w-5xl px-6">
             <h2 className="text-center text-2xl font-semibold text-stone-900">
-              Simple pricing
+              Everything you need
             </h2>
-            <p className="mt-2 text-center text-stone-600">
-              Start free. Upgrade when you need more.
-            </p>
-            <div className="mt-12 grid gap-8 md:grid-cols-3">
+            <div className="mt-12 grid gap-8 md:grid-cols-2">
               {[
                 {
-                  name: "Free",
-                  price: "$0",
-                  period: "forever",
-                  features: [
-                    "1 scan per month",
-                    "Last 30 days of emails",
-                    "Single file downloads",
-                    "AI categorization",
-                  ],
-                  cta: "Get started",
-                  highlight: false,
+                  title: ".eml download",
+                  desc: "Download the original email in standard .eml format, compatible with any email client.",
                 },
                 {
-                  name: "Pro",
-                  price: "$7",
-                  period: "/month",
-                  features: [
-                    "Unlimited scans",
-                    "1 year of email history",
-                    "Bulk ZIP download",
-                    "Email-to-PDF export",
-                    "Priority support",
-                  ],
-                  cta: "Start Pro trial",
-                  highlight: true,
+                  title: "Attachment download",
+                  desc: "Grab PDF invoices, receipts, and any other attachments directly from the email.",
                 },
                 {
-                  name: "Business",
-                  price: "$19",
-                  period: "/month",
-                  features: [
-                    "Everything in Pro",
-                    "Team sharing",
-                    "API access",
-                    "QuickBooks export",
-                    "Dedicated support",
-                  ],
-                  cta: "Contact us",
-                  highlight: false,
+                  title: "Email-as-HTML",
+                  desc: "Export the email body as an HTML file for easy viewing and archival.",
                 },
-              ].map((plan) => (
+                {
+                  title: "Bulk ZIP export",
+                  desc: "Select multiple emails and download them all at once in a single ZIP file.",
+                },
+              ].map((feature) => (
                 <div
-                  key={plan.name}
-                  className={`rounded-xl border p-6 ${
-                    plan.highlight
-                      ? "border-stone-900 bg-stone-50 shadow-lg ring-1 ring-stone-900"
-                      : "border-stone-200 bg-white shadow-sm"
-                  }`}
+                  key={feature.title}
+                  className="flex gap-4 rounded-xl border border-stone-200 bg-stone-50 p-5"
                 >
-                  <h3 className="text-lg font-semibold text-stone-900">
-                    {plan.name}
-                  </h3>
-                  <div className="mt-4">
-                    <span className="text-4xl font-bold text-stone-900">
-                      {plan.price}
-                    </span>
-                    <span className="text-stone-500">{plan.period}</span>
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+                    <svg
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
                   </div>
-                  <ul className="mt-6 space-y-3">
-                    {plan.features.map((f) => (
-                      <li
-                        key={f}
-                        className="flex items-center gap-2 text-sm text-stone-700"
-                      >
-                        <svg
-                          className="h-4 w-4 text-emerald-600"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <button
-                    className={`mt-8 w-full rounded-lg py-2.5 text-sm font-medium transition-colors ${
-                      plan.highlight
-                        ? "bg-stone-900 text-white hover:bg-stone-800"
-                        : "border border-stone-300 bg-white text-stone-900 hover:bg-stone-50"
-                    }`}
-                  >
-                    {plan.cta}
-                  </button>
+                  <div>
+                    <h3 className="font-semibold text-stone-900">
+                      {feature.title}
+                    </h3>
+                    <p className="mt-1 text-sm text-stone-600">
+                      {feature.desc}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -185,12 +135,12 @@ export default function Home() {
                 desc: "We never modify, send, or delete your emails.",
               },
               {
-                title: "No email storage",
-                desc: "We extract metadata only. Full emails are never stored.",
+                title: "No storage",
+                desc: "Nothing is saved. Your data stays in your Gmail.",
               },
               {
-                title: "Delete anytime",
-                desc: "One click removes all your data from our servers.",
+                title: "Fully stateless",
+                desc: "No database, no accounts, no tracking. Just sign in and download.",
               },
             ].map((t) => (
               <div key={t.title}>

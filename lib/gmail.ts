@@ -1,5 +1,21 @@
 import { google, gmail_v1 } from "googleapis";
-import type { AttachmentInfo } from "@/types";
+
+export interface AttachmentInfo {
+  filename: string;
+  mimeType: string;
+  attachmentId: string;
+  size: number;
+}
+
+export interface EmailResult {
+  messageId: string;
+  subject: string;
+  from: string;
+  date: string;
+  snippet: string;
+  hasAttachments: boolean;
+  attachments: AttachmentInfo[];
+}
 
 export function createGmailClient(accessToken: string): gmail_v1.Gmail {
   const auth = new google.auth.OAuth2();
@@ -50,6 +66,18 @@ export async function getFullMessage(
   return res.data;
 }
 
+export async function getRawMessage(
+  gmail: gmail_v1.Gmail,
+  messageId: string
+): Promise<string> {
+  const res = await gmail.users.messages.get({
+    userId: "me",
+    id: messageId,
+    format: "raw",
+  });
+  return res.data.raw ?? "";
+}
+
 export async function downloadAttachment(
   gmail: gmail_v1.Gmail,
   messageId: string,
@@ -72,12 +100,12 @@ export async function downloadAttachment(
 export function getHeader(
   message: gmail_v1.Schema$Message,
   name: string
-): string | null {
+): string {
   const headers = message.payload?.headers ?? [];
   const header = headers.find(
     (h) => h.name?.toLowerCase() === name.toLowerCase()
   );
-  return header?.value ?? null;
+  return header?.value ?? "";
 }
 
 export function extractBody(message: gmail_v1.Schema$Message): {
@@ -111,7 +139,6 @@ export function extractBody(message: gmail_v1.Schema$Message): {
   const payload = message.payload;
   if (!payload) return result;
 
-  // Single-part message
   if (payload.body?.data) {
     const mimeType = payload.mimeType ?? "";
     const decoded = Buffer.from(payload.body.data, "base64url").toString(
@@ -124,7 +151,6 @@ export function extractBody(message: gmail_v1.Schema$Message): {
     }
   }
 
-  // Multi-part message
   walkParts(payload.parts);
 
   return result;
@@ -160,4 +186,55 @@ export function findAttachments(
   walkParts(message.payload?.parts);
 
   return attachments;
+}
+
+export function parseEmailResult(message: gmail_v1.Schema$Message): EmailResult {
+  const attachments = findAttachments(message);
+  return {
+    messageId: message.id!,
+    subject: getHeader(message, "Subject"),
+    from: getHeader(message, "From"),
+    date: getHeader(message, "Date"),
+    snippet: message.snippet ?? "",
+    hasAttachments: attachments.length > 0,
+    attachments,
+  };
+}
+
+export function buildEmailHtml(
+  subject: string,
+  from: string,
+  date: string,
+  bodyHtml: string | null,
+  bodyText: string | null
+): string {
+  const content = bodyHtml
+    ? bodyHtml
+    : `<pre style="white-space:pre-wrap;font-family:inherit">${(bodyText ?? "").replace(/</g, "&lt;")}</pre>`;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${subject.replace(/</g, "&lt;")}</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; color: #1c1917; }
+  .header { border-bottom: 1px solid #e7e5e4; padding-bottom: 16px; margin-bottom: 24px; }
+  .header h1 { font-size: 20px; margin: 0 0 8px; }
+  .meta { color: #78716c; font-size: 14px; line-height: 1.6; }
+  .body { line-height: 1.6; }
+  @media print { body { margin: 20px; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>${subject.replace(/</g, "&lt;")}</h1>
+  <div class="meta">
+    <div><strong>From:</strong> ${from.replace(/</g, "&lt;")}</div>
+    <div><strong>Date:</strong> ${date.replace(/</g, "&lt;")}</div>
+  </div>
+</div>
+<div class="body">${content}</div>
+</body>
+</html>`;
 }

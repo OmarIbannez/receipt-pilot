@@ -19,20 +19,12 @@ export default function Navbar() {
         {/* Nav links + auth */}
         <div className="flex items-center gap-4">
           {isSignedIn && (
-            <>
-              <Link
-                href="/dashboard"
-                className="text-sm font-medium text-stone-600 hover:text-stone-900 transition-colors"
-              >
-                Dashboard
-              </Link>
-              <Link
-                href="/settings"
-                className="text-sm font-medium text-stone-600 hover:text-stone-900 transition-colors"
-              >
-                Settings
-              </Link>
-            </>
+            <Link
+              href="/dashboard"
+              className="text-sm font-medium text-stone-600 hover:text-stone-900 transition-colors"
+            >
+              Dashboard
+            </Link>
           )}
 
           {status === "loading" ? (
